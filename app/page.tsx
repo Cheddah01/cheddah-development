@@ -4,29 +4,14 @@ import { useEffect, useState } from 'react';
 
 const plugins = [
   {
-    name: 'WaveBack', mark: 'W', tone: 'mint', label: 'Community', featured: true,
-    description: 'Turn “welcome back” into a real server moment with custom joins, greeting rewards, leaderboards, and anti-farming controls.',
-    tags: ['Paper', 'Rewards', 'MiniMessage'], github: 'https://github.com/Cheddah01/WaveBack', download: 'https://modrinth.com/plugin/waveback',
-  },
-  {
     name: 'BetterBaltop', mark: 'B', tone: 'gold', label: 'Economy',
     description: 'A fast, polished leaderboard GUI for Vault economy and optional PlayerPoints—cached so menus stay responsive.',
     tags: ['Paper 26.2', 'Vault', 'PlayerPoints'], github: 'https://github.com/Cheddah01/Better-Baltop',
   },
   {
-    name: 'CozyDisplays', mark: 'D', tone: 'aqua', label: 'World tools',
-    description: 'Create, position, style, animate, and safely manage vanilla display entities without a heavyweight hologram suite.',
-    tags: ['Paper', 'Displays', 'Admin UX'], github: 'https://github.com/Cheddah01/CozyDisplays',
-  },
-  {
     name: 'SkinStatues', mark: 'S', tone: 'rose', label: 'Creative',
     description: 'Build towering 3D block statues from any player skin, with modern layers, scaled construction, and safe undo.',
     tags: ['Paper', 'Fabric', 'World editing'], github: 'https://github.com/Cheddah01/Skin-Statues',
-  },
-  {
-    name: 'CozyRaces', mark: 'R', tone: 'blue', label: 'Minigame',
-    description: 'A complete boat-racing system with in-game course setup, queues, voting, timing, leaderboards, and rewards.',
-    tags: ['Paper', 'Racing', 'Leaderboards'], github: 'https://github.com/Cheddah01/CozyRacesPlugin',
   },
 ] as const;
 
@@ -106,13 +91,12 @@ export default function Home() {
 
         <div className="plugin-grid">
           {plugins.map((plugin, index) => (
-            <article className={`plugin-card ${index === 0 ? 'plugin-featured' : ''}`} key={plugin.name}>
+            <article className="plugin-card" key={plugin.name}>
               <div className="card-topline"><span className="card-index">0{index + 1}</span><span className="card-label">{plugin.label}</span></div>
               <div className="card-title-row"><span className={`plugin-mark mark-${plugin.tone}`} aria-hidden="true">{plugin.mark}</span><h3>{plugin.name}</h3></div>
               <p>{plugin.description}</p>
               <div className="tag-row">{plugin.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
               <div className="card-links">
-                {'download' in plugin && plugin.download ? <a className="card-primary-link" href={plugin.download} target="_blank" rel="noreferrer">Get on Modrinth <span>↗</span></a> : null}
                 <a href={plugin.github} target="_blank" rel="noreferrer">Source & details <span>↗</span></a>
               </div>
             </article>
