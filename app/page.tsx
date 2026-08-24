@@ -2,21 +2,128 @@
 
 import { useEffect, useState } from 'react';
 
-const plugins = [
+const WORKER_ORIGIN = 'https://cheddah-plugins-api.colbysthickey.workers.dev';
+const ACCENT_TONES = ['gold', 'rose', 'mint', 'aqua', 'blue'] as const;
+
+type PublicPlugin = {
+  slug: string;
+  name: string;
+  category: string;
+  summary: string;
+  tags: string[];
+  sourceUrl: string | null;
+  downloadUrl: string | null;
+  documentationUrl: string | null;
+  iconLetter: string;
+  accentTone: string;
+  sortOrder: number;
+  updatedAt: string;
+};
+
+const FALLBACK_PLUGINS: PublicPlugin[] = [
   {
-    name: 'BetterBaltop', mark: 'B', tone: 'gold', label: 'Economy',
-    description: 'A fast, polished leaderboard GUI for Vault economy and optional PlayerPoints—cached so menus stay responsive.',
-    tags: ['Paper 26.2', 'Vault', 'PlayerPoints'], github: 'https://github.com/Cheddah01/Better-Baltop',
+    slug: 'better-baltop',
+    name: 'BetterBaltop',
+    category: 'Economy',
+    summary: 'A fast, polished leaderboard GUI for Vault economy and optional PlayerPoints—cached so menus stay responsive.',
+    tags: ['Paper 26.2', 'Vault', 'PlayerPoints'],
+    sourceUrl: 'https://github.com/Cheddah01/Better-Baltop',
+    downloadUrl: 'https://modrinth.com/plugin/betterbaltop',
+    documentationUrl: 'https://docs.cheddah-development.net/plugin-documentaion/better-baltop',
+    iconLetter: 'B',
+    accentTone: 'gold',
+    sortOrder: 10,
+    updatedAt: '',
   },
   {
-    name: 'SkinStatues', mark: 'S', tone: 'rose', label: 'Creative',
-    description: 'Build towering 3D block statues from any player skin, with modern layers, scaled construction, and safe undo.',
-    tags: ['Paper', 'Fabric', 'World editing'], github: 'https://github.com/Cheddah01/Skin-Statues',
+    slug: 'skin-statues',
+    name: 'SkinStatues',
+    category: 'Creative',
+    summary: 'Build towering 3D block statues from any player skin, with modern layers, scaled construction, and safe undo.',
+    tags: ['Paper', 'Fabric', 'World editing'],
+    sourceUrl: 'https://github.com/Cheddah01/Skin-Statues',
+    downloadUrl: 'https://modrinth.com/plugin/skin-statues',
+    documentationUrl: 'https://docs.cheddah-development.net/plugin-documentaion/skin-statues',
+    iconLetter: 'S',
+    accentTone: 'rose',
+    sortOrder: 20,
+    updatedAt: '',
   },
-] as const;
+];
+
+function safeExternalUrl(value: unknown) {
+  if (typeof value !== 'string' || !value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeTone(value: unknown) {
+  return typeof value === 'string' && ACCENT_TONES.includes(value as (typeof ACCENT_TONES)[number])
+    ? value
+    : 'blue';
+}
+
+function parsePublicPlugins(value: unknown): PublicPlugin[] | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const payload = value as { ok?: unknown; plugins?: unknown };
+  if (payload.ok !== true || !Array.isArray(payload.plugins)) {
+    return null;
+  }
+
+  const plugins = payload.plugins.flatMap((entry): PublicPlugin[] => {
+    if (!entry || typeof entry !== 'object') {
+      return [];
+    }
+
+    const plugin = entry as Record<string, unknown>;
+    if (
+      typeof plugin.slug !== 'string' || !plugin.slug ||
+      typeof plugin.name !== 'string' || !plugin.name ||
+      typeof plugin.category !== 'string' || !plugin.category ||
+      typeof plugin.summary !== 'string' || !plugin.summary ||
+      !Array.isArray(plugin.tags) || !plugin.tags.every((tag) => typeof tag === 'string') ||
+      typeof plugin.iconLetter !== 'string' || !plugin.iconLetter ||
+      typeof plugin.sortOrder !== 'number' || !Number.isFinite(plugin.sortOrder)
+    ) {
+      return [];
+    }
+
+    return [{
+      slug: plugin.slug,
+      name: plugin.name,
+      category: plugin.category,
+      summary: plugin.summary,
+      tags: plugin.tags,
+      sourceUrl: safeExternalUrl(plugin.sourceUrl),
+      downloadUrl: safeExternalUrl(plugin.downloadUrl),
+      documentationUrl: safeExternalUrl(plugin.documentationUrl),
+      iconLetter: plugin.iconLetter.slice(0, 1),
+      accentTone: safeTone(plugin.accentTone),
+      sortOrder: plugin.sortOrder,
+      updatedAt: typeof plugin.updatedAt === 'string' ? plugin.updatedAt : '',
+    }];
+  });
+
+  if (payload.plugins.length > 0 && plugins.length === 0) {
+    return null;
+  }
+
+  return plugins.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+}
 
 export default function Home() {
   const [isNight, setIsNight] = useState(false);
+  const [plugins, setPlugins] = useState<PublicPlugin[]>(FALLBACK_PLUGINS);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -26,6 +133,41 @@ export default function Home() {
     });
 
     return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 7000);
+
+    const loadPlugins = async () => {
+      try {
+        const response = await fetch(`${WORKER_ORIGIN}/api/plugins`, {
+          credentials: 'omit',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const livePlugins = parsePublicPlugins(await response.json());
+        if (livePlugins) {
+          setPlugins(livePlugins);
+        }
+      } catch {
+        // Keep the last-known public records when the Worker is temporarily unavailable.
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+
+    void loadPlugins();
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   const toggleTheme = () => {
@@ -89,19 +231,49 @@ export default function Home() {
           <p>Each project starts with one clear server-owner problem and grows only where the player experience benefits.</p>
         </div>
 
-        <div className="plugin-grid">
-          {plugins.map((plugin, index) => (
-            <article className="plugin-card" key={plugin.name}>
-              <div className="card-topline"><span className="card-index">0{index + 1}</span><span className="card-label">{plugin.label}</span></div>
-              <div className="card-title-row"><span className={`plugin-mark mark-${plugin.tone}`} aria-hidden="true">{plugin.mark}</span><h3>{plugin.name}</h3></div>
-              <p>{plugin.description}</p>
-              <div className="tag-row">{plugin.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
-              <div className="card-links">
-                <a href={plugin.github} target="_blank" rel="noreferrer">Source & details <span>↗</span></a>
-              </div>
-            </article>
-          ))}
-        </div>
+        {plugins.length > 0 ? (
+          <div className="plugin-grid">
+            {plugins.map((plugin, index) => (
+              <article className="plugin-card" key={plugin.slug}>
+                <div className="card-topline">
+                  <span className="card-index">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="card-label">{plugin.category}</span>
+                </div>
+                <div className="card-title-row">
+                  <span className={`plugin-mark mark-${safeTone(plugin.accentTone)}`} aria-hidden="true">
+                    {plugin.iconLetter || 'P'}
+                  </span>
+                  <h3>{plugin.name}</h3>
+                </div>
+                <p>{plugin.summary}</p>
+                <div className="tag-row">{plugin.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+                <div className="card-links">
+                  {plugin.downloadUrl ? (
+                    <a className="card-primary-link" href={plugin.downloadUrl} target="_blank" rel="noreferrer">
+                      Download <span>↗</span>
+                    </a>
+                  ) : null}
+                  {plugin.documentationUrl ? (
+                    <a href={plugin.documentationUrl} target="_blank" rel="noreferrer">
+                      Documentation <span>↗</span>
+                    </a>
+                  ) : null}
+                  {plugin.sourceUrl ? (
+                    <a href={plugin.sourceUrl} target="_blank" rel="noreferrer">
+                      Source <span>↗</span>
+                    </a>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="plugin-empty-state">
+            <span aria-hidden="true">🧰</span>
+            <h3>New releases are being prepared.</h3>
+            <p>Check back soon for the next public plugin.</p>
+          </div>
+        )}
       </section>
 
       <section className="section approach-section" id="approach">

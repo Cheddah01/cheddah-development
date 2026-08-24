@@ -692,6 +692,33 @@ nav a:hover {
   background: var(--grass-mid);
 }
 
+.plugin-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 18rem;
+  padding: 2rem;
+  border: 2px dashed var(--line);
+  border-radius: 1.15rem;
+  background: var(--panel);
+  text-align: center;
+  backdrop-filter: blur(14px);
+}
+
+.plugin-empty-state > span {
+  font-size: 2.5rem;
+}
+
+.plugin-empty-state h3 {
+  margin: 0.75rem 0 0;
+  font-family: var(--font-fredoka), sans-serif;
+  font-size: 1.6rem;
+}
+
+.plugin-empty-state p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+}
+
 .approach-section,
 .about-section {
   display: grid;
