@@ -1,14 +1,14 @@
-import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import { Fredoka, Nunito } from 'next/font/google';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const nunito = Nunito({
+  variable: '--font-nunito',
   subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const fredoka = Fredoka({
+  variable: '--font-fredoka',
   subsets: ['latin'],
 });
 
@@ -22,17 +22,21 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     title: 'Cheddah Development — Minecraft Plugins',
-    description: 'Plugins built for the servers players remember.',
+    description: 'Friendly plugins. Serious server polish.',
     url: '/',
     siteName: 'Cheddah Development',
-    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Cheddah Development — Plugins built for the servers players remember.' }],
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Cheddah Development — Friendly plugins. Serious server polish.' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Cheddah Development — Minecraft Plugins',
-    description: 'Plugins built for the servers players remember.',
+    description: 'Friendly plugins. Serious server polish.',
     images: ['/og.png'],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#5eaae8',
 };
 
 export default function RootLayout({
@@ -41,9 +45,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${nunito.variable} ${fredoka.variable}`}
       >
         {children}
         <script

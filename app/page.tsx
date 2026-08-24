@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 const plugins = [
   {
@@ -31,65 +31,76 @@ const plugins = [
 ] as const;
 
 export default function Home() {
+  const [isNight, setIsNight] = useState(false);
+
   useEffect(() => {
-    const updatePointer = (event: PointerEvent) => {
-      document.documentElement.style.setProperty('--pointer-x', `${event.clientX}px`);
-      document.documentElement.style.setProperty('--pointer-y', `${event.clientY}px`);
-    };
-    window.addEventListener('pointermove', updatePointer, { passive: true });
-    return () => window.removeEventListener('pointermove', updatePointer);
+    const frame = window.requestAnimationFrame(() => {
+      const shouldUseNight = window.localStorage.getItem('cheddah-theme') === 'night';
+      document.documentElement.classList.toggle('night', shouldUseNight);
+      setIsNight(shouldUseNight);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = !isNight;
+    setIsNight(nextTheme);
+    document.documentElement.classList.toggle('night', nextTheme);
+    window.localStorage.setItem('cheddah-theme', nextTheme ? 'night' : 'day');
+  };
 
   return (
     <main>
-      <div className="world" aria-hidden="true">
-        <div className="pointer-glow" /><div className="world-grid" /><div className="sky-noise" />
-        <div className="voxel voxel-one"><i /></div><div className="voxel voxel-two"><i /></div><div className="voxel voxel-three"><i /></div>
+      <div className="sky" aria-hidden="true">
+        <div className="night-veil" /><div className="stars" />
+        <div className="mc-sun" /><div className="mc-moon" />
+        <div className="mc-cloud cloud-one" /><div className="mc-cloud cloud-two" />
+        <div className="mc-cloud cloud-three" /><div className="mc-cloud cloud-four" />
       </div>
 
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Cheddah Development home">
-          <span className="brand-block" aria-hidden="true">C</span><span>CHEDDAH<span className="brand-muted">.DEV</span></span>
+          <span className="brand-block" aria-hidden="true">🧀</span><span>Cheddah Development</span>
         </a>
+        <span className="studio-status"><i /> Public plugin studio</span>
         <nav aria-label="Main navigation">
           <a href="#plugins">Plugins</a><a href="#approach">Approach</a><a href="#about">About</a>
           <a href="https://github.com/Cheddah01" target="_blank" rel="noreferrer">GitHub ↗</a>
         </nav>
+        <button className="mode-toggle" type="button" onClick={toggleTheme} aria-label="Toggle day and night mode" aria-pressed={isNight}>
+          <span aria-hidden="true">{isNight ? '☀️' : '🌙'}</span>
+        </button>
       </header>
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <p className="eyebrow"><span /> Independent Minecraft development</p>
-          <h1>Plugins built for the servers <em>players remember.</em></h1>
-          <p className="hero-lede">Focused Minecraft plugins with clean setup, sensible defaults, and the polish server owners should expect.</p>
+          <p className="eyebrow">Minecraft plugin development</p>
+          <h1>Plugins that feel at home on your server.</h1>
+          <p className="hero-lede">Focused public plugins with friendly setup, thoughtful defaults, and the kind of polish players notice without needing a manual.</p>
           <div className="hero-actions">
-            <a className="button button-primary" href="#plugins">Explore the plugins <span>↓</span></a>
-            <a className="button button-ghost" href="https://github.com/Cheddah01" target="_blank" rel="noreferrer">View source</a>
+            <a className="button button-primary" href="#plugins">Explore plugins</a>
+            <a className="button button-secondary" href="https://github.com/Cheddah01" target="_blank" rel="noreferrer">View GitHub</a>
           </div>
         </div>
 
-        <div className="hero-console" aria-label="Development principles">
-          <div className="console-bar">
-            <span><i className="dot dot-red" /><i className="dot dot-yellow" /><i className="dot dot-green" /></span><span>cheddah@paper</span><span>•••</span>
-          </div>
-          <div className="console-body">
-            <p><span className="prompt">$</span> server inspect --quality</p>
-            <p className="console-line"><span className="check">✓</span> Strong defaults</p>
-            <p className="console-line"><span className="check">✓</span> Safe upgrades</p>
-            <p className="console-line"><span className="check">✓</span> Polished player UX</p>
-            <p className="console-line"><span className="check">✓</span> Built for modern Paper</p>
-            <p className="console-ready"><span className="pulse" /> READY TO SHIP</p>
+        <div className="hero-console" aria-label="Current development focus">
+          <span className="hero-card-icon" aria-hidden="true">🧰</span>
+          <p className="mini-label">Built for public servers</p>
+          <h2>Small setup.<br />Big quality-of-life.</h2>
+          <div className="server-details">
+            <span>Modern Paper APIs</span><span>Safe optional integrations</span><span>Clear admin experience</span>
           </div>
         </div>
       </section>
 
       <div className="hero-strip" aria-label="Development stack">
-        <span>Paper</span><i /><span>Java</span><i /><span>Adventure</span><i /><span>MiniMessage</span><i /><span>Built for public servers</span>
+        <span>☕ Java 25</span><span>📄 Paper 26.2</span><span>💬 Adventure</span><span>✨ MiniMessage</span>
       </div>
 
       <section className="section plugins-section" id="plugins">
         <div className="section-heading">
-          <div><p className="section-kicker">{'// Selected work'}</p><h2>Purpose-built plugins.<br /><span>No kitchen sinks.</span></h2></div>
+          <div><p className="section-kicker">Selected work</p><h2>Purpose-built plugins.<br /><span>No kitchen sinks.</span></h2></div>
           <p>Each project starts with one clear server-owner problem and grows only where the player experience benefits.</p>
         </div>
 
@@ -111,7 +122,7 @@ export default function Home() {
 
       <section className="section approach-section" id="approach">
         <div className="approach-copy">
-          <p className="section-kicker">{'// The build philosophy'}</p><h2>Made for real servers,<br /><span>not feature checklists.</span></h2>
+          <p className="section-kicker">The build philosophy</p><h2>Made for real servers,<br /><span>not feature checklists.</span></h2>
           <p>Good plugins should make an administrator’s day easier and disappear into the experience for everyone else.</p>
           <a className="text-link" href="https://github.com/Cheddah01?tab=repositories" target="_blank" rel="noreferrer">Browse all public projects <span>↗</span></a>
         </div>
@@ -129,7 +140,7 @@ export default function Home() {
           <i className="orbit-dot dot-one" /><i className="orbit-dot dot-two" /><i className="orbit-dot dot-three" />
         </div>
         <div className="about-copy">
-          <p className="section-kicker">{'// Behind the blocks'}</p><h2>Independent builds,<br /><span>serious standards.</span></h2>
+          <p className="section-kicker">Behind the blocks</p><h2>Independent builds,<br /><span>serious standards.</span></h2>
           <p>Cheddah Development is my home for public Minecraft plugins: practical tools, playful mechanics, and thoughtful server experiences built to be shared.</p>
           <p>Every release is shaped by hands-on server experience and a simple rule: earn the admin’s trust.</p>
           <div className="about-actions">
@@ -140,7 +151,7 @@ export default function Home() {
       </section>
 
       <footer>
-        <a className="brand" href="#top"><span className="brand-block" aria-hidden="true">C</span><span>CHEDDAH<span className="brand-muted">.DEV</span></span></a>
+        <a className="brand" href="#top" aria-label="Back to the top"><span className="brand-block" aria-hidden="true">🧀</span><span>CHEDDAH<span className="brand-muted">.DEV</span></span></a>
         <p>Independent Minecraft development · Built one block at a time.</p>
         <div><a href="#top">Back to top ↑</a><a href="https://github.com/Cheddah01" target="_blank" rel="noreferrer">GitHub ↗</a></div>
       </footer>
