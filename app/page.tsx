@@ -136,7 +136,10 @@ export default function Home() {
       </section>
 
       <footer>
-        <a className="brand" href="#top" aria-label="Back to the top"><span className="brand-block" aria-hidden="true">🧀</span><span>CHEDDAH<span className="brand-muted">.DEV</span></span></a>
+        <a className="brand" href="https://cheddah-development.net/" aria-label="Cheddah Development home">
+          <span className="brand-block" aria-hidden="true">🧀</span>
+          <span>CHEDDAH<span className="brand-muted">-DEVELOPMENT.NET</span></span>
+        </a>
         <p>Independent Minecraft development · Built one block at a time.</p>
         <div><a href="#top">Back to top ↑</a><a href="https://github.com/Cheddah01" target="_blank" rel="noreferrer">GitHub ↗</a></div>
       </footer>

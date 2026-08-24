@@ -93,9 +93,10 @@ export default function PluginsPage() {
       </section>
 
       <footer>
-        <Link className="brand" href="/" aria-label="Cheddah Development home">
-          <span className="brand-block" aria-hidden="true">🧀</span><span>CHEDDAH<span className="brand-muted">.DEV</span></span>
-        </Link>
+        <a className="brand" href="https://cheddah-development.net/" aria-label="Cheddah Development home">
+          <span className="brand-block" aria-hidden="true">🧀</span>
+          <span>CHEDDAH<span className="brand-muted">-DEVELOPMENT.NET</span></span>
+        </a>
         <p>Independent Minecraft development · Built one block at a time.</p>
         <div><a href="#top">Back to top ↑</a><Link href="/">Home</Link></div>
       </footer>
