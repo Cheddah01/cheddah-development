@@ -46,6 +46,7 @@ type PluginState =
   | { kind: 'error' };
 
 type EditorValues = {
+  slug: string;
   name: string;
   category: string;
   summary: string;
@@ -89,6 +90,7 @@ function safeTone(value: string) {
 
 function editorValuesFor(plugin: PluginRecord): EditorValues {
   return {
+    slug: plugin.slug,
     name: plugin.name,
     category: plugin.category,
     summary: plugin.summary,
@@ -100,6 +102,28 @@ function editorValuesFor(plugin: PluginRecord): EditorValues {
     accentTone: safeTone(plugin.accentTone),
     published: plugin.published,
     sortOrder: String(plugin.sortOrder),
+  };
+}
+
+function newEditorValues(plugins: PluginRecord[]): EditorValues {
+  const highestSortOrder = plugins.reduce(
+    (highest, plugin) => Math.max(highest, plugin.sortOrder),
+    0,
+  );
+
+  return {
+    slug: '',
+    name: '',
+    category: '',
+    summary: '',
+    tags: '',
+    sourceUrl: '',
+    downloadUrl: '',
+    documentationUrl: '',
+    iconLetter: 'P',
+    accentTone: 'blue',
+    published: false,
+    sortOrder: String(Math.min(highestSortOrder + 10, 9999)),
   };
 }
 
@@ -127,6 +151,12 @@ function validateEditor(values: EditorValues) {
   const errors: FieldErrors = {};
   const tags = normalizedTags(values.tags);
   const sortOrder = Number(values.sortOrder);
+
+  if (!values.slug.trim()) errors.slug = 'Enter a plugin slug.';
+  else if (values.slug.trim().length > 80) errors.slug = 'Use 80 characters or fewer.';
+  else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(values.slug.trim())) {
+    errors.slug = 'Use lowercase letters, numbers, and single hyphens only.';
+  }
 
   if (!values.name.trim()) errors.name = 'Enter a plugin name.';
   else if (values.name.trim().length > 80) errors.name = 'Use 80 characters or fewer.';
@@ -189,6 +219,7 @@ export default function AdminPage() {
   const [pluginState, setPluginState] = useState<PluginState>({ kind: 'idle' });
   const [isNight, setIsNight] = useState(false);
   const [editingPlugin, setEditingPlugin] = useState<PluginRecord | null>(null);
+  const [isCreatingPlugin, setIsCreatingPlugin] = useState(false);
   const [editorValues, setEditorValues] = useState<EditorValues | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
@@ -383,6 +414,7 @@ export default function AdminPage() {
     }
 
     setEditingPlugin(null);
+    setIsCreatingPlugin(false);
     setEditorValues(null);
     setFieldErrors({});
     setSaveState({ kind: 'idle' });
@@ -390,7 +422,7 @@ export default function AdminPage() {
   }, [saveState.kind]);
 
   useEffect(() => {
-    if (!editingPlugin) {
+    if (!editingPlugin && !isCreatingPlugin) {
       return;
     }
 
@@ -403,12 +435,23 @@ export default function AdminPage() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [closeEditor, editingPlugin]);
+  }, [closeEditor, editingPlugin, isCreatingPlugin]);
 
   const openEditor = (plugin: PluginRecord, trigger: HTMLButtonElement) => {
     editTriggerRef.current = trigger;
+    setIsCreatingPlugin(false);
     setEditingPlugin(plugin);
     setEditorValues(editorValuesFor(plugin));
+    setFieldErrors({});
+    setSaveState({ kind: 'idle' });
+    setSaveNotice('');
+  };
+
+  const openCreator = (plugins: PluginRecord[], trigger: HTMLButtonElement) => {
+    editTriggerRef.current = trigger;
+    setEditingPlugin(null);
+    setIsCreatingPlugin(true);
+    setEditorValues(newEditorValues(plugins));
     setFieldErrors({});
     setSaveState({ kind: 'idle' });
     setSaveNotice('');
@@ -428,7 +471,7 @@ export default function AdminPage() {
   const savePlugin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!editingPlugin || !editorValues || saveState.kind === 'saving') {
+    if ((!editingPlugin && !isCreatingPlugin) || !editorValues || saveState.kind === 'saving') {
       return;
     }
 
@@ -442,6 +485,7 @@ export default function AdminPage() {
     const token = window.sessionStorage.getItem(SESSION_KEY);
     if (!token || !isReasonableSession(token)) {
       setEditingPlugin(null);
+      setIsCreatingPlugin(false);
       setEditorValues(null);
       setAuth({ kind: 'expired' });
       return;
@@ -454,8 +498,12 @@ export default function AdminPage() {
     const timeout = window.setTimeout(() => controller.abort(), 10000);
 
     try {
-      const response = await fetch(`${WORKER_ORIGIN}/api/admin/plugins/${editingPlugin.id}`, {
-        method: 'PUT',
+      const response = await fetch(
+        isCreatingPlugin
+          ? `${WORKER_ORIGIN}/api/admin/plugins`
+          : `${WORKER_ORIGIN}/api/admin/plugins/${editingPlugin!.id}`,
+        {
+        method: isCreatingPlugin ? 'POST' : 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -463,6 +511,7 @@ export default function AdminPage() {
         credentials: 'omit',
         signal: controller.signal,
         body: JSON.stringify({
+          ...(isCreatingPlugin ? { slug: editorValues.slug.trim() } : {}),
           name: editorValues.name.trim(),
           category: editorValues.category.trim(),
           summary: editorValues.summary.trim(),
@@ -480,13 +529,14 @@ export default function AdminPage() {
       if (response.status === 401 || response.status === 403) {
         window.sessionStorage.removeItem(SESSION_KEY);
         setEditingPlugin(null);
+        setIsCreatingPlugin(false);
         setEditorValues(null);
         setPluginState({ kind: 'idle' });
         setAuth({ kind: response.status === 403 ? 'denied' : 'expired' });
         return;
       }
 
-      if (response.status === 404) {
+      if (!isCreatingPlugin && response.status === 404) {
         setEditingPlugin(null);
         setEditorValues(null);
         setSaveState({ kind: 'idle' });
@@ -502,7 +552,7 @@ export default function AdminPage() {
         fields?: Record<string, string>;
       } | null;
 
-      if (response.status === 400) {
+      if (response.status === 400 || response.status === 409) {
         const workerErrors: FieldErrors = {};
         if (payload?.fields && typeof payload.fields === 'object') {
           for (const [key, value] of Object.entries(payload.fields)) {
@@ -526,17 +576,23 @@ export default function AdminPage() {
         return;
       }
 
-      const updatedPlugin = payload.plugin;
+      const savedPlugin = payload.plugin;
       setPluginState((current) => current.kind === 'loaded'
         ? {
             kind: 'loaded',
-            plugins: current.plugins
-              .map((plugin) => plugin.id === updatedPlugin.id ? updatedPlugin : plugin)
+            plugins: (isCreatingPlugin
+              ? [...current.plugins, savedPlugin]
+              : current.plugins.map((plugin) => plugin.id === savedPlugin.id ? savedPlugin : plugin))
               .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
           }
         : current);
-      setSaveNotice(`${updatedPlugin.name} was saved to the plugin database.`);
+      setSaveNotice(
+        isCreatingPlugin
+          ? `${savedPlugin.name} was created in the plugin database.`
+          : `${savedPlugin.name} was saved to the plugin database.`,
+      );
       setEditingPlugin(null);
+      setIsCreatingPlugin(false);
       setEditorValues(null);
       setSaveState({ kind: 'idle' });
       window.requestAnimationFrame(() => editTriggerRef.current?.focus());
@@ -666,14 +722,25 @@ export default function AdminPage() {
                       : 'Loading plugin records'}
                   </h3>
                 </div>
-                <button
-                  className="admin-refresh"
-                  type="button"
-                  onClick={refreshPlugins}
-                  disabled={pluginState.kind === 'loading'}
-                >
-                  {pluginState.kind === 'loading' ? 'Loading…' : 'Refresh'}
-                </button>
+                <div className="admin-record-actions">
+                  {pluginState.kind === 'loaded' ? (
+                    <button
+                      className="admin-create-button"
+                      type="button"
+                      onClick={(event) => openCreator(pluginState.plugins, event.currentTarget)}
+                    >
+                      <span aria-hidden="true">＋</span> New plugin
+                    </button>
+                  ) : null}
+                  <button
+                    className="admin-refresh"
+                    type="button"
+                    onClick={refreshPlugins}
+                    disabled={pluginState.kind === 'loading'}
+                  >
+                    {pluginState.kind === 'loading' ? 'Loading…' : 'Refresh'}
+                  </button>
+                </div>
               </div>
 
               <p className="admin-save-notice" aria-live="polite">
@@ -702,7 +769,7 @@ export default function AdminPage() {
                 <div className="admin-record-empty">
                   <span aria-hidden="true">📦</span>
                   <h3>No plugin records found.</h3>
-                  <p>Add a record in D1 before continuing.</p>
+                  <p>Use New plugin to create your first record.</p>
                 </div>
               ) : null}
 
@@ -754,9 +821,9 @@ export default function AdminPage() {
               <div className="admin-next-step">
                 <span aria-hidden="true">✅</span>
                 <div>
-                  <p className="mini-label">Secure editing connected</p>
-                  <h3>Changes now save to D1.</h3>
-                  <p>The public portfolio will be connected to these records in the next checkpoint.</p>
+                  <p className="mini-label">Live catalog connected</p>
+                  <h3>Changes publish from D1.</h3>
+                  <p>Published records appear on the public plugin catalog automatically.</p>
                 </div>
               </div>
             </div>
@@ -764,7 +831,7 @@ export default function AdminPage() {
         </div>
       </section>
 
-      {editingPlugin && editorValues ? (
+      {(editingPlugin || isCreatingPlugin) && editorValues ? (
         <div
           className="admin-editor-backdrop"
           onMouseDown={(event) => {
@@ -780,9 +847,17 @@ export default function AdminPage() {
           >
             <div className="admin-editor-heading">
               <div>
-                <p className="mini-label">Editing {editingPlugin.slug}</p>
-                <h2 id="plugin-editor-title">Update {editingPlugin.name}</h2>
-                <p id="plugin-editor-description">Save changes directly to the private plugin database.</p>
+                <p className="mini-label">
+                  {isCreatingPlugin ? 'New catalog record' : `Editing ${editingPlugin!.slug}`}
+                </p>
+                <h2 id="plugin-editor-title">
+                  {isCreatingPlugin ? 'Create a plugin' : `Update ${editingPlugin!.name}`}
+                </h2>
+                <p id="plugin-editor-description">
+                  {isCreatingPlugin
+                    ? 'Create it privately first, then publish it whenever the listing is ready.'
+                    : 'Save changes directly to the private plugin database.'}
+                </p>
               </div>
               <button
                 className="admin-editor-close"
@@ -797,10 +872,29 @@ export default function AdminPage() {
 
             <form className="admin-editor-form" onSubmit={savePlugin} noValidate>
               <div className="admin-form-grid">
+                {isCreatingPlugin ? (
+                  <label className="admin-field admin-field-wide">
+                    <span>Slug</span>
+                    <input
+                      autoFocus
+                      value={editorValues.slug}
+                      onChange={(event) => updateEditorValue(
+                        'slug',
+                        event.target.value.toLowerCase().replace(/\s+/g, '-'),
+                      )}
+                      maxLength={80}
+                      placeholder="my-plugin"
+                      aria-invalid={Boolean(fieldErrors.slug)}
+                    />
+                    <em>Permanent URL-safe identifier, such as better-baltop.</em>
+                    {fieldErrors.slug ? <small>{fieldErrors.slug}</small> : null}
+                  </label>
+                ) : null}
+
                 <label className="admin-field">
                   <span>Name</span>
                   <input
-                    autoFocus
+                    autoFocus={!isCreatingPlugin}
                     value={editorValues.name}
                     onChange={(event) => updateEditorValue('name', event.target.value)}
                     maxLength={80}
@@ -950,7 +1044,9 @@ export default function AdminPage() {
                   Cancel
                 </button>
                 <button className="button button-primary" type="submit" disabled={saveState.kind === 'saving'}>
-                  {saveState.kind === 'saving' ? 'Saving…' : 'Save plugin'}
+                  {saveState.kind === 'saving'
+                    ? (isCreatingPlugin ? 'Creating…' : 'Saving…')
+                    : (isCreatingPlugin ? 'Create plugin' : 'Save plugin')}
                 </button>
               </div>
             </form>

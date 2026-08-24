@@ -1574,6 +1574,13 @@ button.admin-login {
   font-size: 1.35rem;
 }
 
+.admin-record-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.admin-create-button,
 .admin-refresh,
 .admin-record-error button {
   padding: 0.58rem 0.78rem;
@@ -1585,6 +1592,21 @@ button.admin-login {
   font-size: 0.78rem;
   font-weight: 900;
   box-shadow: 0 3px 0 var(--grass-dark);
+}
+
+.admin-create-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  color: #173a53;
+  border-color: rgba(42, 105, 151, 0.32);
+  background: rgba(181, 225, 255, 0.74);
+  box-shadow: 0 3px 0 rgba(42, 105, 151, 0.26);
+}
+
+.admin-create-button:hover,
+.admin-refresh:hover {
+  transform: translateY(-1px);
 }
 
 .admin-refresh:disabled {
@@ -2086,6 +2108,19 @@ button.admin-login {
 
   .admin-userbar {
     flex-direction: column;
+  }
+
+  .admin-record-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-record-actions {
+    width: 100%;
+  }
+
+  .admin-record-actions button {
+    flex: 1;
   }
 
   .admin-next-step {
