@@ -14,31 +14,13 @@ type PublicPlugin = {
   sourceUrl: string | null;
   downloadUrl: string | null;
   documentationUrl: string | null;
-  supportUrl: string | null;
   iconLetter: string;
   accentTone: string;
   sortOrder: number;
   updatedAt: string;
 };
 
-const COZY_CLAIMS_PLUGIN: PublicPlugin = {
-  slug: 'cozy-claims',
-  name: 'CozyClaims',
-  category: 'Protection',
-  summary: 'A polished, menu-driven land protection system with visual claiming, member roles, configurable rules, and native persistence.',
-  tags: ['Paper 26.2', 'Java 25', '$8.99'],
-  sourceUrl: null,
-  downloadUrl: null,
-  documentationUrl: 'https://docs.cheddah-development.net/plugin-documentaion/cozy-claims',
-  supportUrl: 'https://github.com/Cheddah01/CozyClaims-Issues/issues',
-  iconLetter: 'C',
-  accentTone: 'mint',
-  sortOrder: 5,
-  updatedAt: '',
-};
-
 const FALLBACK_PLUGINS: PublicPlugin[] = [
-  COZY_CLAIMS_PLUGIN,
   {
     slug: 'better-baltop',
     name: 'BetterBaltop',
@@ -48,7 +30,6 @@ const FALLBACK_PLUGINS: PublicPlugin[] = [
     sourceUrl: 'https://github.com/Cheddah01/Better-Baltop',
     downloadUrl: 'https://modrinth.com/plugin/betterbaltop',
     documentationUrl: 'https://docs.cheddah-development.net/plugin-documentaion/better-baltop',
-    supportUrl: null,
     iconLetter: 'B',
     accentTone: 'gold',
     sortOrder: 10,
@@ -63,7 +44,6 @@ const FALLBACK_PLUGINS: PublicPlugin[] = [
     sourceUrl: 'https://github.com/Cheddah01/Skin-Statues',
     downloadUrl: 'https://modrinth.com/plugin/skin-statues',
     documentationUrl: 'https://docs.cheddah-development.net/plugin-documentaion/skin-statues',
-    supportUrl: null,
     iconLetter: 'S',
     accentTone: 'rose',
     sortOrder: 20,
@@ -127,7 +107,6 @@ function parsePublicPlugins(value: unknown): PublicPlugin[] | null {
       sourceUrl: safeExternalUrl(plugin.sourceUrl),
       downloadUrl: safeExternalUrl(plugin.downloadUrl),
       documentationUrl: safeExternalUrl(plugin.documentationUrl),
-      supportUrl: safeExternalUrl(plugin.supportUrl),
       iconLetter: plugin.iconLetter.slice(0, 1),
       accentTone: safeTone(plugin.accentTone),
       sortOrder: plugin.sortOrder,
@@ -140,14 +119,6 @@ function parsePublicPlugins(value: unknown): PublicPlugin[] | null {
   }
 
   return plugins.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-}
-
-function includeLocalPlugins(plugins: PublicPlugin[]) {
-  const slugs = new Set(plugins.map((plugin) => plugin.slug));
-  const localPlugins = [COZY_CLAIMS_PLUGIN].filter((plugin) => !slugs.has(plugin.slug));
-
-  return [...plugins, ...localPlugins]
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 }
 
 export default function PluginCatalog({ compact = false, limit }: { compact?: boolean; limit?: number }) {
@@ -171,7 +142,7 @@ export default function PluginCatalog({ compact = false, limit }: { compact?: bo
 
         const livePlugins = parsePublicPlugins(await response.json());
         if (livePlugins) {
-          setPlugins(includeLocalPlugins(livePlugins));
+          setPlugins(livePlugins);
         }
       } catch {
         // Keep the last-known public records when the Worker is temporarily unavailable.
@@ -225,11 +196,6 @@ export default function PluginCatalog({ compact = false, limit }: { compact?: bo
             {plugin.documentationUrl ? (
               <a href={plugin.documentationUrl} target="_blank" rel="noreferrer">
                 Documentation <span>↗</span>
-              </a>
-            ) : null}
-            {plugin.supportUrl ? (
-              <a href={plugin.supportUrl} target="_blank" rel="noreferrer">
-                Support <span>↗</span>
               </a>
             ) : null}
             {plugin.sourceUrl ? (
