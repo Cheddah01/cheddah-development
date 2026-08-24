@@ -273,6 +273,44 @@ nav a[aria-current="page"] {
   background: rgba(98, 189, 71, 0.12);
 }
 
+.social-nav-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin-left: 0.12rem;
+  padding-left: 0.4rem;
+  border-left: 1px solid var(--line);
+}
+
+nav a.nav-icon-link {
+  display: grid;
+  place-items: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.7rem;
+}
+
+.nav-icon-link img {
+  display: block;
+  width: 1.28rem;
+  height: 1.28rem;
+}
+
+.nav-icon-link.kofi-link {
+  background: rgba(255, 100, 51, 0.08);
+}
+
+.nav-icon-link.kofi-link:hover {
+  border-color: rgba(255, 100, 51, 0.25);
+  background: rgba(255, 100, 51, 0.14);
+}
+
+.night .nav-icon-link.github-link img {
+  filter: invert(1);
+}
+
 .night nav a[aria-current="page"] {
   color: #86d673;
 }
@@ -1264,6 +1302,16 @@ footer > div a:hover {
 
   nav {
     margin-left: auto;
+  }
+
+  .social-nav-links {
+    padding-left: 0.3rem;
+  }
+
+  nav a.nav-icon-link {
+    display: grid;
+    width: 2.35rem;
+    height: 2.35rem;
   }
 
   nav a {

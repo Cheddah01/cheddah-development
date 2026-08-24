@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import PluginCatalog from '../plugin-catalog';
+import SocialNavLinks from '../social-nav-links';
 
 export default function PluginsPage() {
   const [isNight, setIsNight] = useState(false);
@@ -43,7 +44,7 @@ export default function PluginsPage() {
           <Link href="/plugins/" aria-current="page">Plugins</Link>
           <Link href="/#approach">Approach</Link>
           <Link href="/#about">About</Link>
-          <a href="https://github.com/Cheddah01" target="_blank" rel="noreferrer">GitHub ↗</a>
+          <SocialNavLinks />
         </nav>
         <button className="mode-toggle" type="button" onClick={toggleTheme} aria-label="Toggle day and night mode" aria-pressed={isNight}>
           <span aria-hidden="true">{isNight ? '☀️' : '🌙'}</span>
