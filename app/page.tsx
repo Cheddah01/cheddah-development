@@ -58,12 +58,32 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="hero-console" aria-label="Current development focus">
-          <span className="hero-card-icon" aria-hidden="true">🧰</span>
-          <p className="mini-label">Built for public servers</p>
-          <h2>Small setup.<br />Big quality-of-life.</h2>
+        <div className="hero-console" aria-label="Cheddah Development release standards">
+          <div className="hero-console-top">
+            <span className="hero-card-icon" aria-hidden="true">🧰</span>
+            <span className="hero-console-badge"><i /> Release standard</span>
+          </div>
+          <div className="hero-console-heading">
+            <p className="mini-label">Built for public servers</p>
+            <h2>Small setup.<br /><span>Serious server polish.</span></h2>
+            <p>Thoughtful defaults up front, dependable behavior everywhere else.</p>
+          </div>
           <div className="server-details">
-            <span>Modern Paper APIs</span><span>Safe optional integrations</span><span>Clear admin experience</span>
+            <article>
+              <span aria-hidden="true">01</span>
+              <div><strong>Modern foundations</strong><small>Paper-first APIs and Java 25.</small></div>
+            </article>
+            <article>
+              <span aria-hidden="true">02</span>
+              <div><strong>Safe integrations</strong><small>Optional hooks stay optional.</small></div>
+            </article>
+            <article>
+              <span aria-hidden="true">03</span>
+              <div><strong>Clear admin experience</strong><small>Useful defaults, messages, and docs.</small></div>
+            </article>
+          </div>
+          <div className="hero-console-footer">
+            <span>Public-server ready</span><span>Built by Cheddah</span>
           </div>
         </div>
       </section>
