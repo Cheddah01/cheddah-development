@@ -12,6 +12,24 @@ type AdminUser = {
   isAdmin: boolean;
 };
 
+type PluginRecord = {
+  id: number;
+  slug: string;
+  name: string;
+  category: string;
+  summary: string;
+  tags: string[];
+  sourceUrl: string | null;
+  downloadUrl: string | null;
+  documentationUrl: string | null;
+  iconLetter: string;
+  accentTone: string;
+  published: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type AuthState =
   | { kind: 'checking' }
   | { kind: 'logged-out' }
@@ -20,13 +38,126 @@ type AuthState =
   | { kind: 'denied' }
   | { kind: 'unavailable' };
 
+type PluginState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'loaded'; plugins: PluginRecord[] }
+  | { kind: 'error' };
+
 function isReasonableSession(value: string) {
   return value.length >= 40 && value.length <= 4096 && value.includes('.');
 }
 
+function safeExternalUrl(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeTone(value: string) {
+  return ['gold', 'rose', 'mint', 'aqua', 'blue'].includes(value) ? value : 'blue';
+}
+
+function formatUpdatedAt(value: string) {
+  if (!value) {
+    return 'Update time unavailable';
+  }
+
+  const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`;
+  const date = new Date(normalized);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Update time unavailable';
+  }
+
+  return `Updated ${new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date)}`;
+}
+
+function ResourceLink({ label, url }: { label: string; url: string | null }) {
+  const safeUrl = safeExternalUrl(url);
+
+  if (!safeUrl) {
+    return <span className="admin-resource missing">{label} missing</span>;
+  }
+
+  return (
+    <a className="admin-resource linked" href={safeUrl} target="_blank" rel="noreferrer">
+      {label} <span aria-hidden="true">↗</span>
+    </a>
+  );
+}
+
 export default function AdminPage() {
   const [auth, setAuth] = useState<AuthState>({ kind: 'checking' });
+  const [pluginState, setPluginState] = useState<PluginState>({ kind: 'idle' });
   const [isNight, setIsNight] = useState(false);
+
+  const loadPlugins = useCallback(async (token: string) => {
+    setPluginState({ kind: 'loading' });
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 7000);
+
+    try {
+      const response = await fetch(`${WORKER_ORIGIN}/api/admin/plugins`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'omit',
+        signal: controller.signal,
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        window.sessionStorage.removeItem(SESSION_KEY);
+        setPluginState({ kind: 'idle' });
+        setAuth({ kind: response.status === 403 ? 'denied' : 'expired' });
+        return;
+      }
+
+      if (!response.ok) {
+        setPluginState({ kind: 'error' });
+        return;
+      }
+
+      const payload = await response.json() as {
+        ok?: boolean;
+        plugins?: PluginRecord[];
+      };
+
+      if (payload.ok !== true || !Array.isArray(payload.plugins)) {
+        setPluginState({ kind: 'error' });
+        return;
+      }
+
+      setPluginState({
+        kind: 'loaded',
+        plugins: payload.plugins.filter((plugin) => (
+          plugin &&
+          Number.isSafeInteger(plugin.id) &&
+          typeof plugin.slug === 'string' &&
+          typeof plugin.name === 'string' &&
+          typeof plugin.category === 'string' &&
+          typeof plugin.summary === 'string' &&
+          Array.isArray(plugin.tags)
+        )),
+      });
+    } catch {
+      setPluginState({ kind: 'error' });
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }, []);
 
   const verifySession = useCallback(async (token: string) => {
     setAuth({ kind: 'checking' });
@@ -78,12 +209,13 @@ export default function AdminPage() {
           isAdmin: true,
         },
       });
+      void loadPlugins(token);
     } catch {
       setAuth({ kind: 'unavailable' });
     } finally {
       window.clearTimeout(timeout);
     }
-  }, []);
+  }, [loadPlugins]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -136,8 +268,20 @@ export default function AdminPage() {
     }
   };
 
+  const refreshPlugins = () => {
+    const token = window.sessionStorage.getItem(SESSION_KEY);
+
+    if (token && isReasonableSession(token)) {
+      void loadPlugins(token);
+    } else {
+      setPluginState({ kind: 'idle' });
+      setAuth({ kind: 'expired' });
+    }
+  };
+
   const logout = () => {
     window.sessionStorage.removeItem(SESSION_KEY);
+    setPluginState({ kind: 'idle' });
     setAuth({ kind: 'logged-out' });
   };
 
@@ -251,23 +395,96 @@ export default function AdminPage() {
                 <button className="admin-logout" type="button" onClick={logout}>Log out</button>
               </div>
 
-              <div className="admin-summary-grid">
-                <article>
-                  <span className="plugin-mark mark-gold" aria-hidden="true">B</span>
-                  <div><h3>BetterBaltop</h3><p>Published plugin record</p></div>
-                </article>
-                <article>
-                  <span className="plugin-mark mark-rose" aria-hidden="true">S</span>
-                  <div><h3>SkinStatues</h3><p>Published plugin record</p></div>
-                </article>
+              <div className="admin-record-heading">
+                <div>
+                  <p className="mini-label">Live D1 records</p>
+                  <h3>
+                    {pluginState.kind === 'loaded'
+                      ? `${pluginState.plugins.length} plugins connected`
+                      : 'Loading plugin records'}
+                  </h3>
+                </div>
+                <button
+                  className="admin-refresh"
+                  type="button"
+                  onClick={refreshPlugins}
+                  disabled={pluginState.kind === 'loading'}
+                >
+                  {pluginState.kind === 'loading' ? 'Loading…' : 'Refresh'}
+                </button>
               </div>
+
+              {pluginState.kind === 'loading' || pluginState.kind === 'idle' ? (
+                <div className="admin-record-loading">
+                  <span className="admin-spinner" aria-hidden="true" />
+                  <p>Loading the private plugin records…</p>
+                </div>
+              ) : null}
+
+              {pluginState.kind === 'error' ? (
+                <div className="admin-record-error">
+                  <span aria-hidden="true">🌧️</span>
+                  <div>
+                    <h3>Plugin records could not be loaded.</h3>
+                    <p>Your signed-in session is still valid.</p>
+                  </div>
+                  <button type="button" onClick={refreshPlugins}>Retry</button>
+                </div>
+              ) : null}
+
+              {pluginState.kind === 'loaded' && pluginState.plugins.length === 0 ? (
+                <div className="admin-record-empty">
+                  <span aria-hidden="true">📦</span>
+                  <h3>No plugin records found.</h3>
+                  <p>Add a record in D1 before continuing.</p>
+                </div>
+              ) : null}
+
+              {pluginState.kind === 'loaded' && pluginState.plugins.length > 0 ? (
+                <div className="admin-record-list">
+                  {pluginState.plugins.map((plugin) => (
+                    <article className="admin-plugin-record" key={plugin.id}>
+                      <div className="admin-plugin-record-top">
+                        <span className={`plugin-mark mark-${safeTone(plugin.accentTone)}`} aria-hidden="true">
+                          {plugin.iconLetter.slice(0, 1) || 'P'}
+                        </span>
+                        <div className="admin-plugin-record-title">
+                          <span className={`admin-publish-state ${plugin.published ? 'published' : 'draft'}`}>
+                            {plugin.published ? 'Published' : 'Hidden'}
+                          </span>
+                          <h3>{plugin.name}</h3>
+                          <p>{plugin.category} · {plugin.slug}</p>
+                        </div>
+                        <span className="admin-sort-order">#{plugin.sortOrder}</span>
+                      </div>
+
+                      <p className="admin-plugin-summary">{plugin.summary}</p>
+
+                      <div className="tag-row">
+                        {plugin.tags.map((tag) => <span key={tag}>{tag}</span>)}
+                      </div>
+
+                      <div className="admin-resource-row">
+                        <ResourceLink label="Source" url={plugin.sourceUrl} />
+                        <ResourceLink label="Download" url={plugin.downloadUrl} />
+                        <ResourceLink label="Documentation" url={plugin.documentationUrl} />
+                      </div>
+
+                      <div className="admin-plugin-record-footer">
+                        <span>{formatUpdatedAt(plugin.updatedAt)}</span>
+                        <span>Read-only checkpoint</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="admin-next-step">
                 <span aria-hidden="true">🧰</span>
                 <div>
-                  <p className="mini-label">Authentication complete</p>
-                  <h3>The plugin editor comes next.</h3>
-                  <p>This checkpoint proves the private session flow before any database writes are exposed.</p>
+                  <p className="mini-label">Private data connected</p>
+                  <h3>Editing comes next.</h3>
+                  <p>First we are confirming that only your verified Discord session can retrieve these records.</p>
                 </div>
               </div>
             </div>

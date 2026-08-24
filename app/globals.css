@@ -1238,6 +1238,217 @@ button.admin-login {
   font-weight: 900;
 }
 
+.admin-record-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-record-heading h3 {
+  margin: 0;
+  font-family: var(--font-fredoka), sans-serif;
+  font-size: 1.35rem;
+}
+
+.admin-refresh,
+.admin-record-error button {
+  padding: 0.58rem 0.78rem;
+  border: 2px solid var(--grass-dark);
+  border-radius: 0.62rem;
+  color: #fff;
+  background: var(--grass-mid);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+  box-shadow: 0 3px 0 var(--grass-dark);
+}
+
+.admin-refresh:disabled {
+  opacity: 0.58;
+  cursor: wait;
+}
+
+.admin-record-loading,
+.admin-record-error,
+.admin-record-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  min-height: 8rem;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.9rem;
+  color: var(--muted);
+  background: var(--panel-soft);
+  text-align: center;
+}
+
+.admin-record-loading .admin-spinner {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+
+.admin-record-error {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  text-align: left;
+}
+
+.admin-record-error > span,
+.admin-record-empty > span {
+  font-size: 1.55rem;
+}
+
+.admin-record-error h3,
+.admin-record-empty h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-fredoka), sans-serif;
+  font-size: 1rem;
+}
+
+.admin-record-error p,
+.admin-record-empty p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+}
+
+.admin-record-empty {
+  flex-direction: column;
+}
+
+.admin-record-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.admin-plugin-record {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.95rem;
+  background: var(--panel-soft);
+}
+
+.admin-plugin-record-top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.admin-plugin-record-top .plugin-mark {
+  width: 3rem;
+  height: 3rem;
+  font-size: 1.2rem;
+}
+
+.admin-plugin-record-title h3 {
+  margin: 0.18rem 0 0;
+  font-family: var(--font-fredoka), sans-serif;
+  font-size: 1.25rem;
+}
+
+.admin-plugin-record-title p {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.admin-publish-state {
+  display: inline-flex;
+  padding: 0.22rem 0.45rem;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.61rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.admin-publish-state.published {
+  background: var(--grass-mid);
+}
+
+.admin-publish-state.draft {
+  color: var(--muted);
+  background: rgba(79, 107, 130, 0.18);
+}
+
+.admin-sort-order {
+  align-self: start;
+  color: var(--muted);
+  font-family: var(--font-fredoka), sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.admin-plugin-summary {
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.admin-plugin-record .tag-row {
+  margin-top: 0.85rem;
+}
+
+.admin-resource-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.48rem;
+  margin-top: 0.9rem;
+}
+
+.admin-resource {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.52rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.admin-resource.linked {
+  color: var(--grass-dark);
+  background: rgba(98, 189, 71, 0.1);
+}
+
+.night .admin-resource.linked {
+  color: #86d673;
+}
+
+.admin-resource.missing {
+  color: #a45f45;
+  background: rgba(191, 101, 72, 0.09);
+}
+
+.night .admin-resource.missing {
+  color: #eba78e;
+}
+
+.admin-plugin-record-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 900;
+}
+
 .admin-next-step {
   display: grid;
   grid-template-columns: 3.4rem 1fr;
@@ -1303,11 +1514,25 @@ button.admin-login {
     grid-template-columns: 1fr;
   }
 
+  .admin-record-error {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .admin-record-error button {
+    justify-self: center;
+  }
+
   .admin-userbar {
     flex-direction: column;
   }
 
   .admin-next-step {
     grid-template-columns: 1fr;
+  }
+
+  .admin-plugin-record-footer {
+    flex-direction: column;
+    gap: 0.25rem;
   }
 }
