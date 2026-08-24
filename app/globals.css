@@ -384,8 +384,6 @@ nav a[aria-current="page"] {
 
 .hero-console {
   position: relative;
-  isolation: isolate;
-  overflow: visible;
   padding: 1.35rem;
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 1.4rem;
@@ -397,23 +395,6 @@ nav a[aria-current="page"] {
     0 24px 60px rgba(34, 91, 132, 0.22);
   backdrop-filter: blur(20px);
   transform: rotate(0.65deg);
-}
-
-.hero-console::after {
-  position: absolute;
-  content: "";
-  z-index: -1;
-  border-radius: 1rem;
-}
-
-.hero-console::after {
-  right: -0.8rem;
-  bottom: -0.65rem;
-  width: 4.2rem;
-  height: 1.9rem;
-  border: 3px solid var(--dirt-dark);
-  background: linear-gradient(180deg, var(--grass) 0 32%, var(--dirt) 32%);
-  box-shadow: inset 0 -0.4rem rgba(92, 58, 30, 0.2);
 }
 
 .night .hero-console {
