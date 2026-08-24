@@ -1185,7 +1185,6 @@ footer::before {
   width: 100vw;
   height: 100%;
   background:
-    linear-gradient(90deg, transparent 0 8%, rgba(47, 107, 34, 0.16) 8% 13%, transparent 13% 21%, rgba(47, 107, 34, 0.12) 21% 25%, transparent 25%),
     linear-gradient(180deg, #62bd47 0 1.25rem, #4d9f39 1.25rem 2rem, #8a5a33 2rem 100%);
   border-top: 4px solid var(--grass-dark);
   box-shadow: inset 0 0.8rem rgba(255, 255, 255, 0.08);
