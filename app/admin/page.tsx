@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 
 const WORKER_ORIGIN = 'https://cheddah-plugins-api.colbysthickey.workers.dev';
 const SESSION_KEY = 'cheddahPluginSession';
+const ACCENT_TONES = ['gold', 'rose', 'mint', 'aqua', 'blue'] as const;
 
 type AdminUser = {
   username: string;
@@ -44,6 +45,27 @@ type PluginState =
   | { kind: 'loaded'; plugins: PluginRecord[] }
   | { kind: 'error' };
 
+type EditorValues = {
+  name: string;
+  category: string;
+  summary: string;
+  tags: string;
+  sourceUrl: string;
+  downloadUrl: string;
+  documentationUrl: string;
+  iconLetter: string;
+  accentTone: string;
+  published: boolean;
+  sortOrder: string;
+};
+
+type SaveState =
+  | { kind: 'idle' }
+  | { kind: 'saving' }
+  | { kind: 'error'; message: string };
+
+type FieldErrors = Partial<Record<keyof EditorValues, string>>;
+
 function isReasonableSession(value: string) {
   return value.length >= 40 && value.length <= 4096 && value.includes('.');
 }
@@ -62,7 +84,71 @@ function safeExternalUrl(value: string | null) {
 }
 
 function safeTone(value: string) {
-  return ['gold', 'rose', 'mint', 'aqua', 'blue'].includes(value) ? value : 'blue';
+  return ACCENT_TONES.includes(value as (typeof ACCENT_TONES)[number]) ? value : 'blue';
+}
+
+function editorValuesFor(plugin: PluginRecord): EditorValues {
+  return {
+    name: plugin.name,
+    category: plugin.category,
+    summary: plugin.summary,
+    tags: plugin.tags.join(', '),
+    sourceUrl: plugin.sourceUrl ?? '',
+    downloadUrl: plugin.downloadUrl ?? '',
+    documentationUrl: plugin.documentationUrl ?? '',
+    iconLetter: plugin.iconLetter,
+    accentTone: safeTone(plugin.accentTone),
+    published: plugin.published,
+    sortOrder: String(plugin.sortOrder),
+  };
+}
+
+function normalizedTags(value: string) {
+  return value
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function isValidOptionalHttpsUrl(value: string) {
+  if (!value.trim()) {
+    return true;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'https:' && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+function validateEditor(values: EditorValues) {
+  const errors: FieldErrors = {};
+  const tags = normalizedTags(values.tags);
+  const sortOrder = Number(values.sortOrder);
+
+  if (!values.name.trim()) errors.name = 'Enter a plugin name.';
+  else if (values.name.trim().length > 80) errors.name = 'Use 80 characters or fewer.';
+
+  if (!values.category.trim()) errors.category = 'Enter a category.';
+  else if (values.category.trim().length > 80) errors.category = 'Use 80 characters or fewer.';
+
+  if (!values.summary.trim()) errors.summary = 'Enter a short summary.';
+  else if (values.summary.trim().length > 500) errors.summary = 'Use 500 characters or fewer.';
+
+  if (tags.length > 8) errors.tags = 'Use no more than 8 tags.';
+  else if (tags.some((tag) => tag.length > 40)) errors.tags = 'Each tag must be 40 characters or fewer.';
+
+  if (!isValidOptionalHttpsUrl(values.sourceUrl)) errors.sourceUrl = 'Use a complete https:// link.';
+  if (!isValidOptionalHttpsUrl(values.downloadUrl)) errors.downloadUrl = 'Use a complete https:// link.';
+  if (!isValidOptionalHttpsUrl(values.documentationUrl)) errors.documentationUrl = 'Use a complete https:// link.';
+
+  if (!/^[a-z0-9]$/i.test(values.iconLetter.trim())) errors.iconLetter = 'Use one letter or number.';
+  if (!ACCENT_TONES.includes(values.accentTone as (typeof ACCENT_TONES)[number])) errors.accentTone = 'Choose a valid accent.';
+  if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 9999) errors.sortOrder = 'Use a whole number from 0 to 9999.';
+
+  return errors;
 }
 
 function formatUpdatedAt(value: string) {
@@ -102,6 +188,12 @@ export default function AdminPage() {
   const [auth, setAuth] = useState<AuthState>({ kind: 'checking' });
   const [pluginState, setPluginState] = useState<PluginState>({ kind: 'idle' });
   const [isNight, setIsNight] = useState(false);
+  const [editingPlugin, setEditingPlugin] = useState<PluginRecord | null>(null);
+  const [editorValues, setEditorValues] = useState<EditorValues | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
+  const [saveNotice, setSaveNotice] = useState('');
+  const editTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const loadPlugins = useCallback(async (token: string) => {
     setPluginState({ kind: 'loading' });
@@ -285,6 +377,176 @@ export default function AdminPage() {
     setAuth({ kind: 'logged-out' });
   };
 
+  const closeEditor = useCallback(() => {
+    if (saveState.kind === 'saving') {
+      return;
+    }
+
+    setEditingPlugin(null);
+    setEditorValues(null);
+    setFieldErrors({});
+    setSaveState({ kind: 'idle' });
+    window.requestAnimationFrame(() => editTriggerRef.current?.focus());
+  }, [saveState.kind]);
+
+  useEffect(() => {
+    if (!editingPlugin) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeEditor();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [closeEditor, editingPlugin]);
+
+  const openEditor = (plugin: PluginRecord, trigger: HTMLButtonElement) => {
+    editTriggerRef.current = trigger;
+    setEditingPlugin(plugin);
+    setEditorValues(editorValuesFor(plugin));
+    setFieldErrors({});
+    setSaveState({ kind: 'idle' });
+    setSaveNotice('');
+  };
+
+  const updateEditorValue = <Key extends keyof EditorValues>(key: Key, value: EditorValues[Key]) => {
+    setEditorValues((current) => current ? { ...current, [key]: value } : current);
+    setFieldErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    if (saveState.kind === 'error') setSaveState({ kind: 'idle' });
+  };
+
+  const savePlugin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingPlugin || !editorValues || saveState.kind === 'saving') {
+      return;
+    }
+
+    const errors = validateEditor(editorValues);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setSaveState({ kind: 'error', message: 'Check the highlighted fields and try again.' });
+      return;
+    }
+
+    const token = window.sessionStorage.getItem(SESSION_KEY);
+    if (!token || !isReasonableSession(token)) {
+      setEditingPlugin(null);
+      setEditorValues(null);
+      setAuth({ kind: 'expired' });
+      return;
+    }
+
+    setFieldErrors({});
+    setSaveState({ kind: 'saving' });
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const response = await fetch(`${WORKER_ORIGIN}/api/admin/plugins/${editingPlugin.id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'omit',
+        signal: controller.signal,
+        body: JSON.stringify({
+          name: editorValues.name.trim(),
+          category: editorValues.category.trim(),
+          summary: editorValues.summary.trim(),
+          tags: normalizedTags(editorValues.tags),
+          sourceUrl: editorValues.sourceUrl.trim() || null,
+          downloadUrl: editorValues.downloadUrl.trim() || null,
+          documentationUrl: editorValues.documentationUrl.trim() || null,
+          iconLetter: editorValues.iconLetter.trim(),
+          accentTone: editorValues.accentTone,
+          published: editorValues.published,
+          sortOrder: Number(editorValues.sortOrder),
+        }),
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        window.sessionStorage.removeItem(SESSION_KEY);
+        setEditingPlugin(null);
+        setEditorValues(null);
+        setPluginState({ kind: 'idle' });
+        setAuth({ kind: response.status === 403 ? 'denied' : 'expired' });
+        return;
+      }
+
+      if (response.status === 404) {
+        setEditingPlugin(null);
+        setEditorValues(null);
+        setSaveState({ kind: 'idle' });
+        setSaveNotice('That record changed or was removed. The list has been refreshed.');
+        void loadPlugins(token);
+        return;
+      }
+
+      const payload = await response.json().catch(() => null) as {
+        ok?: boolean;
+        plugin?: PluginRecord;
+        error?: string;
+        fields?: Record<string, string>;
+      } | null;
+
+      if (response.status === 400) {
+        const workerErrors: FieldErrors = {};
+        if (payload?.fields && typeof payload.fields === 'object') {
+          for (const [key, value] of Object.entries(payload.fields)) {
+            if (key in editorValues && typeof value === 'string') {
+              workerErrors[key as keyof EditorValues] = value;
+            }
+          }
+        }
+        setFieldErrors(workerErrors);
+        setSaveState({ kind: 'error', message: payload?.error || 'Check the highlighted fields and try again.' });
+        return;
+      }
+
+      if (!response.ok || payload?.ok !== true || !payload.plugin) {
+        const message = response.status === 413
+          ? 'This update is too large.'
+          : response.status === 415
+            ? 'The update format was rejected.'
+            : 'The plugin could not be saved. Please try again.';
+        setSaveState({ kind: 'error', message });
+        return;
+      }
+
+      const updatedPlugin = payload.plugin;
+      setPluginState((current) => current.kind === 'loaded'
+        ? {
+            kind: 'loaded',
+            plugins: current.plugins
+              .map((plugin) => plugin.id === updatedPlugin.id ? updatedPlugin : plugin)
+              .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
+          }
+        : current);
+      setSaveNotice(`${updatedPlugin.name} was saved to the plugin database.`);
+      setEditingPlugin(null);
+      setEditorValues(null);
+      setSaveState({ kind: 'idle' });
+      window.requestAnimationFrame(() => editTriggerRef.current?.focus());
+    } catch {
+      setSaveState({ kind: 'error', message: 'The connection timed out. Your changes were not confirmed—please try again.' });
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  };
+
   const toggleTheme = () => {
     const nextTheme = !isNight;
     setIsNight(nextTheme);
@@ -414,6 +676,10 @@ export default function AdminPage() {
                 </button>
               </div>
 
+              <p className="admin-save-notice" aria-live="polite">
+                {saveNotice}
+              </p>
+
               {pluginState.kind === 'loading' || pluginState.kind === 'idle' ? (
                 <div className="admin-record-loading">
                   <span className="admin-spinner" aria-hidden="true" />
@@ -472,7 +738,13 @@ export default function AdminPage() {
 
                       <div className="admin-plugin-record-footer">
                         <span>{formatUpdatedAt(plugin.updatedAt)}</span>
-                        <span>Read-only checkpoint</span>
+                        <button
+                          className="admin-edit-button"
+                          type="button"
+                          onClick={(event) => openEditor(plugin, event.currentTarget)}
+                        >
+                          Edit plugin
+                        </button>
                       </div>
                     </article>
                   ))}
@@ -480,17 +752,211 @@ export default function AdminPage() {
               ) : null}
 
               <div className="admin-next-step">
-                <span aria-hidden="true">🧰</span>
+                <span aria-hidden="true">✅</span>
                 <div>
-                  <p className="mini-label">Private data connected</p>
-                  <h3>Editing comes next.</h3>
-                  <p>First we are confirming that only your verified Discord session can retrieve these records.</p>
+                  <p className="mini-label">Secure editing connected</p>
+                  <h3>Changes now save to D1.</h3>
+                  <p>The public portfolio will be connected to these records in the next checkpoint.</p>
                 </div>
               </div>
             </div>
           ) : null}
         </div>
       </section>
+
+      {editingPlugin && editorValues ? (
+        <div
+          className="admin-editor-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeEditor();
+          }}
+        >
+          <section
+            className="admin-editor"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plugin-editor-title"
+            aria-describedby="plugin-editor-description"
+          >
+            <div className="admin-editor-heading">
+              <div>
+                <p className="mini-label">Editing {editingPlugin.slug}</p>
+                <h2 id="plugin-editor-title">Update {editingPlugin.name}</h2>
+                <p id="plugin-editor-description">Save changes directly to the private plugin database.</p>
+              </div>
+              <button
+                className="admin-editor-close"
+                type="button"
+                onClick={closeEditor}
+                disabled={saveState.kind === 'saving'}
+                aria-label="Close plugin editor"
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="admin-editor-form" onSubmit={savePlugin} noValidate>
+              <div className="admin-form-grid">
+                <label className="admin-field">
+                  <span>Name</span>
+                  <input
+                    autoFocus
+                    value={editorValues.name}
+                    onChange={(event) => updateEditorValue('name', event.target.value)}
+                    maxLength={80}
+                    aria-invalid={Boolean(fieldErrors.name)}
+                  />
+                  {fieldErrors.name ? <small>{fieldErrors.name}</small> : null}
+                </label>
+
+                <label className="admin-field">
+                  <span>Category</span>
+                  <input
+                    value={editorValues.category}
+                    onChange={(event) => updateEditorValue('category', event.target.value)}
+                    maxLength={80}
+                    aria-invalid={Boolean(fieldErrors.category)}
+                  />
+                  {fieldErrors.category ? <small>{fieldErrors.category}</small> : null}
+                </label>
+
+                <label className="admin-field admin-field-wide">
+                  <span>Summary</span>
+                  <textarea
+                    value={editorValues.summary}
+                    onChange={(event) => updateEditorValue('summary', event.target.value)}
+                    maxLength={500}
+                    rows={4}
+                    aria-invalid={Boolean(fieldErrors.summary)}
+                  />
+                  <em>{editorValues.summary.trim().length}/500</em>
+                  {fieldErrors.summary ? <small>{fieldErrors.summary}</small> : null}
+                </label>
+
+                <label className="admin-field admin-field-wide">
+                  <span>Tags</span>
+                  <input
+                    value={editorValues.tags}
+                    onChange={(event) => updateEditorValue('tags', event.target.value)}
+                    placeholder="Paper, MiniMessage, Leaderboards"
+                    aria-invalid={Boolean(fieldErrors.tags)}
+                  />
+                  <em>Separate up to 8 tags with commas.</em>
+                  {fieldErrors.tags ? <small>{fieldErrors.tags}</small> : null}
+                </label>
+
+                <label className="admin-field admin-field-wide">
+                  <span>Source link</span>
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={editorValues.sourceUrl}
+                    onChange={(event) => updateEditorValue('sourceUrl', event.target.value)}
+                    placeholder="https://github.com/…"
+                    aria-invalid={Boolean(fieldErrors.sourceUrl)}
+                  />
+                  {fieldErrors.sourceUrl ? <small>{fieldErrors.sourceUrl}</small> : null}
+                </label>
+
+                <label className="admin-field admin-field-wide">
+                  <span>Download link</span>
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={editorValues.downloadUrl}
+                    onChange={(event) => updateEditorValue('downloadUrl', event.target.value)}
+                    placeholder="https://…"
+                    aria-invalid={Boolean(fieldErrors.downloadUrl)}
+                  />
+                  {fieldErrors.downloadUrl ? <small>{fieldErrors.downloadUrl}</small> : null}
+                </label>
+
+                <label className="admin-field admin-field-wide">
+                  <span>Documentation link</span>
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={editorValues.documentationUrl}
+                    onChange={(event) => updateEditorValue('documentationUrl', event.target.value)}
+                    placeholder="https://…"
+                    aria-invalid={Boolean(fieldErrors.documentationUrl)}
+                  />
+                  {fieldErrors.documentationUrl ? <small>{fieldErrors.documentationUrl}</small> : null}
+                </label>
+
+                <label className="admin-field">
+                  <span>Icon letter</span>
+                  <input
+                    value={editorValues.iconLetter}
+                    onChange={(event) => updateEditorValue('iconLetter', event.target.value.slice(0, 1))}
+                    maxLength={1}
+                    aria-invalid={Boolean(fieldErrors.iconLetter)}
+                  />
+                  {fieldErrors.iconLetter ? <small>{fieldErrors.iconLetter}</small> : null}
+                </label>
+
+                <label className="admin-field">
+                  <span>Accent color</span>
+                  <select
+                    value={editorValues.accentTone}
+                    onChange={(event) => updateEditorValue('accentTone', event.target.value)}
+                    aria-invalid={Boolean(fieldErrors.accentTone)}
+                  >
+                    {ACCENT_TONES.map((tone) => (
+                      <option key={tone} value={tone}>{tone.charAt(0).toUpperCase() + tone.slice(1)}</option>
+                    ))}
+                  </select>
+                  {fieldErrors.accentTone ? <small>{fieldErrors.accentTone}</small> : null}
+                </label>
+
+                <label className="admin-field">
+                  <span>Sort order</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="9999"
+                    step="1"
+                    value={editorValues.sortOrder}
+                    onChange={(event) => updateEditorValue('sortOrder', event.target.value)}
+                    aria-invalid={Boolean(fieldErrors.sortOrder)}
+                  />
+                  {fieldErrors.sortOrder ? <small>{fieldErrors.sortOrder}</small> : null}
+                </label>
+
+                <label className="admin-publish-toggle">
+                  <input
+                    type="checkbox"
+                    checked={editorValues.published}
+                    onChange={(event) => updateEditorValue('published', event.target.checked)}
+                  />
+                  <span>
+                    <strong>Published</strong>
+                    <small>Show this plugin when the public site is connected.</small>
+                  </span>
+                </label>
+              </div>
+
+              {saveState.kind === 'error' ? (
+                <p className="admin-save-error" role="alert">{saveState.message}</p>
+              ) : null}
+
+              <div className="admin-editor-actions">
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={closeEditor}
+                  disabled={saveState.kind === 'saving'}
+                >
+                  Cancel
+                </button>
+                <button className="button button-primary" type="submit" disabled={saveState.kind === 'saving'}>
+                  {saveState.kind === 'saving' ? 'Saving…' : 'Save plugin'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
