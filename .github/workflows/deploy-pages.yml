@@ -32,8 +32,6 @@ jobs:
 
       - name: Build static site
         run: npm run build
-        env:
-          NEXT_PUBLIC_BASE_PATH: /cheddah-development
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

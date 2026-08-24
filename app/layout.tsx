@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://cheddah01.github.io/cheddah-development'),
+  metadataBase: new URL('https://cheddah-development.net'),
   title: 'Cheddah Development — Minecraft Plugins',
   description: 'Focused, polished Minecraft plugins built for modern public servers.',
   keywords: ['Minecraft plugins', 'Paper plugins', 'Minecraft server tools', 'Cheddah Development'],
@@ -53,7 +53,7 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'Person',
               name: 'Cheddah Development',
-              url: 'https://cheddah01.github.io/cheddah-development',
+              url: 'https://cheddah-development.net',
               sameAs: ['https://github.com/Cheddah01', 'https://modrinth.com/plugin/waveback'],
               knowsAbout: ['Minecraft plugins', 'PaperMC', 'Java'],
             }),
